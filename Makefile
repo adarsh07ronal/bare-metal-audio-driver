@@ -57,7 +57,7 @@ $(BUILD)/audio.elf: $(FW_SRCS) | $(BUILD)
 # Unit tests — compiled for your Mac, run natively
 # ═══════════════════════════════════════════════════════════════════════
 .PHONY: test
-test: test_audio_buf test_sine_gen
+test: test_audio_buf test_sine_gen test_pdm_filter
 	@echo ""
 	@echo "All test suites complete."
 
@@ -74,6 +74,13 @@ test_sine_gen: $(BUILD)
 	    -o $(BUILD)/test_sine_gen -lm
 	@echo ""
 	./$(BUILD)/test_sine_gen
+
+test_pdm_filter: $(BUILD)
+	$(CC_HOST) -O0 -g -Wall -Wextra -Isrc -Itests/unity \
+	    tests/test_pdm_filter.c src/pdm_filter.c tests/unity/unity.c \
+	    -o $(BUILD)/test_pdm_filter -lm
+	@echo ""
+	./$(BUILD)/test_pdm_filter
 
 # ═══════════════════════════════════════════════════════════════════════
 # Run in QEMU
