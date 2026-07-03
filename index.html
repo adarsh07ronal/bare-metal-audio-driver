@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bare-Metal Audio Driver — STM32F407</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #21262d;
+  --border: #30363d; --text: #e6edf3; --muted: #8b949e;
+  --accent: #58a6ff; --green: #3fb950; --yellow: #d29922;
+  --red: #f85149; --purple: #bc8cff; --orange: #ffa657;
+  --teal: #39d353; --pink: #ff7b72;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.6; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* NAV */
+nav { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+.nav-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; padding: 0 20px; gap: 4px; overflow-x: auto; }
+.nav-brand { color: var(--text); font-weight: 700; font-size: 14px; padding: 14px 12px 14px 0; border-right: 1px solid var(--border); margin-right: 8px; white-space: nowrap; }
+.tab-btn { background: none; border: none; color: var(--muted); cursor: pointer; padding: 14px 14px; font-size: 13px; font-weight: 500; white-space: nowrap; border-bottom: 2px solid transparent; transition: color .15s, border-color .15s; }
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* CONTENT */
+.tab-content { display: none; max-width: 1100px; margin: 0 auto; padding: 36px 24px 80px; }
+.tab-content.active { display: block; }
+
+/* TYPOGRAPHY */
+h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+h2 { font-size: 20px; font-weight: 600; color: var(--accent); margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+h3 { font-size: 16px; font-weight: 600; color: var(--orange); margin: 24px 0 8px; }
+h4 { font-size: 14px; font-weight: 600; color: var(--purple); margin: 16px 0 6px; }
+p { margin-bottom: 12px; color: var(--text); }
+ul, ol { padding-left: 22px; margin-bottom: 12px; }
+li { margin-bottom: 4px; }
+strong { color: var(--text); }
+
+/* HERO */
+.hero { background: linear-gradient(135deg, #1a2332 0%, #161b22 100%); border: 1px solid var(--border); border-radius: 10px; padding: 32px 36px; margin-bottom: 32px; }
+.hero h1 { font-size: 32px; }
+.hero .subtitle { color: var(--muted); font-size: 15px; margin-top: 6px; }
+.badge-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 500; }
+.badge.green { color: var(--green); border-color: #238636; }
+.badge.blue { color: var(--accent); border-color: #1f6feb; }
+.badge.purple { color: var(--purple); border-color: #6e40c9; }
+
+/* CODE */
+pre { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; overflow-x: auto; margin: 12px 0 20px; font-size: 13px; line-height: 1.6; }
+code { font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace; }
+p code, li code, td code { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 12.5px; color: var(--orange); }
+
+/* SYNTAX HIGHLIGHT CLASSES */
+.kw { color: #ff7b72; } /* keywords */
+.ty { color: #ffa657; } /* types */
+.fn { color: #d2a8ff; } /* functions */
+.cm { color: #8b949e; font-style: italic; } /* comments */
+.st { color: #a5d6ff; } /* strings */
+.nu { color: #79c0ff; } /* numbers */
+.pp { color: #ff7b72; } /* preprocessor */
+.ma { color: #ffa657; } /* macros */
+
+/* TABLES */
+table { width: 100%; border-collapse: collapse; margin: 12px 0 24px; font-size: 13.5px; }
+th { background: var(--surface2); color: var(--muted); text-align: left; padding: 8px 14px; border: 1px solid var(--border); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+td { padding: 9px 14px; border: 1px solid var(--border); vertical-align: top; }
+tr:nth-child(even) td { background: #0d1117; }
+td:first-child code { color: var(--teal); }
+
+/* CARDS */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 16px 0 28px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+.card h3 { margin-top: 0; }
+.card p { font-size: 13.5px; color: var(--muted); margin: 0; }
+
+/* CALLOUT */
+.callout { border-radius: 8px; padding: 16px 20px; margin: 16px 0; border-left: 4px solid; }
+.callout.info { background: #1c2a3a; border-color: var(--accent); }
+.callout.warn { background: #2d2108; border-color: var(--yellow); }
+.callout.tip { background: #0f2a1a; border-color: var(--green); }
+.callout.danger { background: #2d0d0d; border-color: var(--red); }
+.callout p { margin: 0; font-size: 13.5px; }
+.callout strong { display: block; margin-bottom: 4px; }
+
+/* ARCH DIAGRAM */
+.arch { font-family: 'SF Mono', monospace; font-size: 12.5px; line-height: 1.7; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; overflow-x: auto; color: var(--teal); }
+
+/* FILE SECTION */
+.file-header { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px 8px 0 0; padding: 12px 20px; display: flex; align-items: center; gap: 10px; }
+.file-header .filename { font-family: monospace; font-size: 14px; color: var(--accent); font-weight: 600; }
+.file-header .file-desc { font-size: 12.5px; color: var(--muted); }
+.file-body { border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; padding: 20px; margin-bottom: 28px; }
+
+/* STACK LAYERS */
+.stack { display: flex; flex-direction: column; gap: 3px; margin: 20px 0; max-width: 520px; }
+.layer { padding: 12px 20px; border-radius: 6px; font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; }
+.layer .label { font-weight: 600; }
+.layer .note { font-size: 11.5px; color: rgba(255,255,255,.55); }
+.l1 { background: #1a3a5c; border: 1px solid #2a5a8c; }
+.l2 { background: #1a3a2a; border: 1px solid #2a5a3a; }
+.l3 { background: #3a2a1a; border: 1px solid #5a3a1a; }
+.l4 { background: #2a1a3a; border: 1px solid #4a2a5a; }
+.l5 { background: #3a1a1a; border: 1px solid #5a2a2a; }
+.arrow { text-align: center; color: var(--muted); font-size: 18px; }
+
+/* Q&A */
+.qa { margin-bottom: 20px; }
+.question { background: var(--surface2); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; padding: 12px 16px; font-weight: 600; font-size: 14px; cursor: pointer; margin-bottom: 0; }
+.answer { background: var(--surface); border: 1px solid var(--border); border-top: none; border-radius: 0 0 6px 6px; padding: 14px 18px; font-size: 13.5px; }
+.answer p { margin-bottom: 8px; }
+.answer p:last-child { margin-bottom: 0; }
+
+/* ANALOGY BOX */
+.analogy { background: #1a2a1a; border: 1px solid #2a4a2a; border-radius: 8px; padding: 16px 20px; margin: 12px 0; }
+.analogy strong { color: var(--green); display: block; margin-bottom: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+.analogy p { margin: 0; font-size: 13.5px; }
+
+/* TOC sidebar for file ref */
+.two-col { display: grid; grid-template-columns: 200px 1fr; gap: 24px; }
+.toc { position: sticky; top: 72px; align-self: start; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; max-height: calc(100vh - 100px); overflow-y: auto; }
+.toc a { display: block; color: var(--muted); font-size: 12.5px; padding: 4px 0; border-left: 2px solid transparent; padding-left: 8px; margin-left: -8px; }
+.toc a:hover, .toc a.active { color: var(--accent); border-left-color: var(--accent); }
+.toc-section { color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; margin: 10px 0 4px; }
+
+@media (max-width: 700px) {
+  .two-col { grid-template-columns: 1fr; }
+  .toc { display: none; }
+  .hero { padding: 20px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <div class="nav-brand">🔊 BM-Audio</div>
+    <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab-btn" onclick="switchTab('concepts')">Concepts &amp; Patterns</button>
+    <button class="tab-btn" onclick="switchTab('fileref')">File Reference</button>
+    <button class="tab-btn" onclick="switchTab('audiostack')">Audio Stack</button>
+    <button class="tab-btn" onclick="switchTab('alternatives')">HW Alternatives</button>
+    <button class="tab-btn" onclick="switchTab('interview')">Interview Prep</button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════ OVERVIEW -->
+<div id="tab-overview" class="tab-content active">
+
+<div class="hero">
+  <h1>Bare-Metal I2S Audio Driver</h1>
+  <div class="subtitle">STM32F407 Cortex-M4 · DMA Ping-Pong · CIC+FIR PDM Filter · Q15 Fixed-Point · No OS · No stdlib</div>
+  <div class="badge-row">
+    <span class="badge green">27 Unit Tests</span>
+    <span class="badge blue">ARM Cortex-M4</span>
+    <span class="badge purple">QEMU Simulated</span>
+    <span class="badge green">No HAL</span>
+    <span class="badge blue">Register-Level</span>
+  </div>
+</div>
+
+<h2>What This Project Is</h2>
+<p>A production-quality, bare-metal audio driver written in pure C. It drives the I2S2 peripheral of an STM32F407 microcontroller, outputs a continuous 440 Hz tone via DMA double-buffering, and converts PDM microphone input to PCM using a CIC + FIR decimation pipeline — all without an OS, HAL, or standard library.</p>
+
+<div class="card-grid">
+  <div class="card">
+    <h3>🎯 Goal</h3>
+    <p>Demonstrate real-time audio driver skills: register-level peripheral control, DMA, interrupt-safe data structures, and DSP — exactly what companies like Qualcomm, ARM, and Apple test for.</p>
+  </div>
+  <div class="card">
+    <h3>⚙️ Target Hardware</h3>
+    <p>STM32F407VGT6 — ARM Cortex-M4F, 168 MHz, 1 MB Flash, 128 KB SRAM. Simulated in QEMU using the <code>netduinoplus2</code> machine model.</p>
+  </div>
+  <div class="card">
+    <h3>📐 Key Constraints</h3>
+    <p>No dynamic allocation, no OS, no libc. Every timing guarantee is met via DMA circular mode + ping-pong buffers. Code runs on Cortex-M0 too (Q15 not float).</p>
+  </div>
+</div>
+
+<h2>System Architecture</h2>
+<pre class="arch">
+PDM microphone (MEMS, simulated)
+        │  1-bit stream @ 3.072 MHz
+        ▼
+┌───────────────────────────────────┐
+│  Stage 1: CIC Filter              │  3 integrators + 3 combs
+│  Decimation ×64 → 48 kHz         │  Only add/subtract — zero multiplies
+│  Runs at PDM bit rate             │  Gain = 64³ = 262144 (scaled down)
+└───────────┬───────────────────────┘
+            │  one int32 sample per 64 input bits
+            ▼
+┌───────────────────────────────────┐
+│  Stage 2: FIR Filter (16-tap)     │  Hamming-windowed sinc coefficients
+│  Low-pass cutoff ~19 kHz          │  Q15 multiply-accumulate
+│  Runs at PCM rate (48 kHz)        │  Ring-buffer delay line
+└───────────┬───────────────────────┘
+            │  clean 16-bit PCM @ 48 kHz
+            ▼
+┌───────────────────────────────────┐
+│  Ping-Pong Buffer                 │  ping[512] ↔ pong[512] stereo frames
+│  Interrupt-safe handoff           │  CPU writes inactive half
+│  No mutex — single pointer swap   │  DMA reads active half
+└───────────┬───────────────────────┘
+            │
+            ▼
+┌───────────────────────────────────┐
+│  I2S Peripheral Driver            │  SPI2/I2S2 @ 0x40003800
+│  DMA circular mode (Stream5 Ch0)  │  CPU-free during transfer
+│  ISR on half/full complete        │  ~microseconds CPU per buffer
+└───────────┬───────────────────────┘
+            │  I2S Philips standard, 16-bit stereo
+            ▼
+         Speaker / DAC (PCM5102, CS4344…)
+</pre>
+
+<h2>Data Flow in Numbers</h2>
+<table>
+  <tr><th>Stage</th><th>Rate</th><th>Data width</th><th>CPU cost</th></tr>
+  <tr><td>PDM bit input</td><td>3.072 MHz</td><td>1 bit</td><td>~zero (simulated)</td></tr>
+  <tr><td>After CIC ×64 decimation</td><td>48 kHz</td><td>int32</td><td>3 adds/bit</td></tr>
+  <tr><td>After FIR low-pass</td><td>48 kHz</td><td>int16 (Q15)</td><td>16 MACs/sample</td></tr>
+  <tr><td>DMA burst to I2S</td><td>512 frames/interrupt</td><td>16-bit × 2 ch</td><td>1 ISR per 10.6 ms</td></tr>
+</table>
+
+<h2>Why Each Design Choice Was Made</h2>
+<table>
+  <tr><th>Decision</th><th>Why</th><th>Alternative considered</th></tr>
+  <tr><td>DMA circular mode</td><td>48,000 interrupts/s → 1 per buffer. 512× less CPU overhead.</td><td>Interrupt per sample (unusable)</td></tr>
+  <tr><td>Ping-pong buffers</td><td>DMA needs a stable source; CPU needs to write. Two halves, never share.</td><td>Single buffer with mutex (latency)</td></tr>
+  <tr><td>CIC for PDM decimation</td><td>Runs at 3 MHz — zero multiplies. A FIR at 3 MHz would saturate the CPU.</td><td>Direct FIR (too expensive at PDM rate)</td></tr>
+  <tr><td>Q15 fixed-point</td><td>Portable to M0/M3 (no FPU). Deterministic timing. No libm dependency.</td><td>float (FPU available on M4 but not portable)</td></tr>
+  <tr><td>No OS / no HAL</td><td>Deterministic latency. Every register write is visible. No hidden interrupts.</td><td>FreeRTOS + STM32 HAL (used in production — added here for depth)</td></tr>
+  <tr><td>256-entry sine LUT</td><td>Pre-computed at init. Zero trig at runtime. Full cycle in 256 int16 values.</td><td>sinf() per sample (too slow, pulls libm)</td></tr>
+</table>
+
+<h2>Build &amp; Run</h2>
+<pre><code><span class="cm"># Install toolchain (macOS)</span>
+brew install arm-none-eabi-gcc qemu
+
+<span class="cm"># Run unit tests natively on Mac (no hardware needed)</span>
+make test
+<span class="cm"># → 27 Tests, 0 Failures, 0 Ignored</span>
+
+<span class="cm"># Build firmware ELF for ARM</span>
+make
+
+<span class="cm"># Simulate in QEMU (netduinoplus2 = STM32F407)</span>
+make qemu
+<span class="cm"># Ctrl-A then X to exit</span></code></pre>
+
+<h2>Test Coverage</h2>
+<table>
+  <tr><th>Suite</th><th>Tests</th><th>What is verified</th></tr>
+  <tr><td><code>test_audio_buf.c</code></td><td>9</td><td>Init to silence, write/read pointer logic, buffer isolation (write to one never corrupts other), swap toggle behaviour</td></tr>
+  <tr><td><code>test_sine_gen.c</code></td><td>9</td><td>Frequency init, non-zero output, stereo channel sync, zero amplitude = silence, phase accumulation, phase wrap &lt; 256, Nyquist edge case, waveform continuity across fills</td></tr>
+  <tr><td><code>test_pdm_filter.c</code></td><td>9</td><td>CIC/FIR pipeline output, silence near zero, sine roundtrip, dual-channel independence, int16 clamping</td></tr>
+</table>
+
+<h2>Project File Map</h2>
+<table>
+  <tr><th>File</th><th>Role</th></tr>
+  <tr><td><code>main.c</code></td><td>Vector table, startup (.data/.bss init), main audio loop</td></tr>
+  <tr><td><code>i2s.h / i2s.c</code></td><td>I2S peripheral driver — register writes, DMA control, ISR callback</td></tr>
+  <tr><td><code>audio_buf.h / audio_buf.c</code></td><td>Ping-pong buffer — lock-free DMA/CPU handoff</td></tr>
+  <tr><td><code>sine_gen.h / sine_gen.c</code></td><td>440 Hz sine generator — Q15 LUT, no runtime float</td></tr>
+  <tr><td><code>src/pdm_filter.h / pdm_filter.c</code></td><td>PDM→PCM decimation: CIC stage + 16-tap FIR</td></tr>
+  <tr><td><code>linker/stm32f407.ld</code></td><td>Memory map: 1 MB Flash @ 0x08000000, 128 KB SRAM @ 0x20000000</td></tr>
+  <tr><td><code>tests/</code></td><td>27 Unity tests, compilable natively on Mac</td></tr>
+  <tr><td><code>Makefile</code></td><td>Cross-compile (arm-none-eabi-gcc) + native test build</td></tr>
+</table>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ CONCEPTS -->
+<div id="tab-concepts" class="tab-content">
+
+<h1>Concepts &amp; Design Patterns</h1>
+<p>Every major technique used in this driver — explained bottom-up with analogies.</p>
+
+<h2>1. Memory-Mapped I/O (MMIO)</h2>
+<p>On ARM Cortex-M, peripherals (I2S, DMA, GPIO) are not separate chips — they're just memory addresses. Writing <code>0x1</code> to address <code>0x40003900</code> <em>literally enables the I2S peripheral</em>.</p>
+<pre><code><span class="cm">/* From i2s.h — the peripheral IS these addresses */</span>
+<span class="pp">#define</span> <span class="ma">I2S2_BASE</span>    <span class="nu">0x40003800UL</span>
+<span class="pp">#define</span> <span class="ma">I2S2_CR1</span>     (<span class="ma">I2S2_BASE</span> + <span class="nu">0x00</span>)  <span class="cm">/* Control register 1 */</span>
+<span class="pp">#define</span> <span class="ma">I2S2_SR</span>      (<span class="ma">I2S2_BASE</span> + <span class="nu">0x08</span>)  <span class="cm">/* Status register    */</span>
+<span class="pp">#define</span> <span class="ma">I2S2_DR</span>      (<span class="ma">I2S2_BASE</span> + <span class="nu">0x0C</span>)  <span class="cm">/* Data register      */</span>
+
+<span class="cm">/* Writing a sample to the hardware: */</span>
+*((<span class="kw">volatile</span> <span class="ty">uint32_t</span>*)(<span class="ma">I2S2_BASE</span> + <span class="nu">0x0C</span>)) = sample;</code></pre>
+<div class="analogy"><strong>Analogy</strong><p>Think of a hotel with numbered rooms. Room 1004 is the "send audio data" room. You walk in and leave a note (write to the address). The hotel (hardware) reads the note and acts on it. The room doesn't store things — it triggers hardware action.</p></div>
+<div class="callout info"><p><strong>Why volatile?</strong> Without <code>volatile</code>, the compiler might optimize away the write ("nobody reads this variable") or reorder it. <code>volatile</code> forces every access to go through the actual memory bus — critical when the "memory" is hardware.</p></div>
+
+<h2>2. The volatile Keyword</h2>
+<pre><code><span class="kw">volatile</span> <span class="ty">uint32_t</span> *<span class="fn">reg</span> = (<span class="kw">volatile</span> <span class="ty">uint32_t</span>*)<span class="nu">0x40003808</span>;
+
+<span class="cm">/* Without volatile — compiler might eliminate this loop: */</span>
+<span class="kw">while</span> (*reg &amp; FLAG) {}  <span class="cm">/* "reg never changes in C code!" → optimized to infinite loop or removed */</span>
+
+<span class="cm">/* With volatile — compiler MUST re-read reg every iteration: */</span>
+<span class="kw">while</span> (*(<span class="kw">volatile</span> <span class="ty">uint32_t</span>*)<span class="nu">0x40003808</span> &amp; FLAG) {}  <span class="cm">/* correct — hardware changes it */</span></code></pre>
+<p>The status register changes <em>because hardware changes it</em>, not because your C code does. The compiler cannot see hardware — so you must tell it to re-read every time.</p>
+
+<h2>3. DMA — Direct Memory Access</h2>
+<p>DMA is a hardware bus master that can copy data between memory and peripherals without CPU involvement.</p>
+<pre><code><span class="cm">/* Conceptual DMA setup (from i2s.c): */</span>
+DMA_SxCR  = DIRECTION_MEM_TO_PERIPH   <span class="cm">/* memory → I2S data register */</span>
+           | CIRCULAR_MODE             <span class="cm">/* auto-restart at buffer end */</span>
+           | MINC                      <span class="cm">/* increment memory address   */</span>
+           | DATA_SIZE_16BIT;
+
+DMA_SxNDTR = AUDIO_BUF_SIZE;          <span class="cm">/* number of transfers */</span>
+DMA_SxM0AR = (uint32_t)audio_buffer;  <span class="cm">/* source address      */</span>
+DMA_SxPAR  = I2S2_DR;                 <span class="cm">/* destination: I2S DR */</span></code></pre>
+
+<table>
+  <tr><th>CPU-driven (interrupt per sample)</th><th>DMA circular mode</th></tr>
+  <tr><td>48,000 interrupts/second</td><td>~94 interrupts/second (512-sample buffer)</td></tr>
+  <tr><td>CPU wakes up for every 16-bit word</td><td>CPU wakes up when entire buffer is done</td></tr>
+  <tr><td>Can't do anything else</td><td>CPU free 99.9% of the time</td></tr>
+</table>
+
+<div class="analogy"><strong>Analogy</strong><p>CPU-driven I/O = you carry each box yourself, one at a time, between warehouse and truck. DMA = you hire a forklift operator — you say "move these 512 boxes," go do other work, and the operator calls you when done.</p></div>
+
+<h2>4. Ping-Pong (Double) Buffering</h2>
+<p>Two buffers, each large enough for one DMA burst. DMA always reads from the "active" buffer while the CPU fills the "inactive" one. At the ISR, they swap roles.</p>
+<pre><code><span class="kw">typedef struct</span> {
+    <span class="ty">int16_t</span> ping[<span class="ma">AUDIO_BUF_SIZE</span>];  <span class="cm">/* 512 stereo frames = 1024 int16 */</span>
+    <span class="ty">int16_t</span> pong[<span class="ma">AUDIO_BUF_SIZE</span>];
+    <span class="ty">uint8_t</span> active;                  <span class="cm">/* 0=DMA reads ping, 1=DMA reads pong */</span>
+    <span class="ty">uint32_t</span> underruns;              <span class="cm">/* diagnostic counter */</span>
+} <span class="ty">AudioBuf</span>;
+
+<span class="cm">/* Swap in ISR — single XOR, atomic on ARM: */</span>
+buf-&gt;active ^= <span class="nu">1</span>;
+
+<span class="cm">/* CPU always writes the inactive half: */</span>
+<span class="ty">int16_t</span> *write = (buf-&gt;active == <span class="nu">0</span>) ? buf-&gt;pong : buf-&gt;ping;
+
+<span class="cm">/* DMA always reads the active half: */</span>
+<span class="ty">int16_t</span> *read  = (buf-&gt;active == <span class="nu">0</span>) ? buf-&gt;ping : buf-&gt;pong;</code></pre>
+
+<div class="analogy"><strong>Analogy</strong><p>Restaurant with two serving windows: one window serves customers (DMA plays), the other window is being stocked by the kitchen (CPU writes). When the serving window empties, you flip a sign — the stocked window starts serving, the empty one goes back to the kitchen. Customers never wait.</p></div>
+
+<div class="callout tip"><p><strong>Why no mutex?</strong> The swap is a single XOR on a single byte. On ARM Cortex-M, a byte write is atomic — it either happens or it doesn't, never half-done. Since only the ISR swaps, and the main loop only reads <code>active</code> after the swap, there's no race condition.</p></div>
+
+<h2>5. CIC Filter — Cascaded Integrator-Comb</h2>
+<p>A CIC filter decimates (downsamples) a 1-bit PDM stream using only addition and subtraction — no multiplication. Essential when the input rate (3 MHz) is too fast for multipliers.</p>
+<pre><code><span class="cm">/* CIC structure: 3 integrators + 3 combs, decimation = 64 */</span>
+
+<span class="cm">/* Integrator (runs every PDM bit): y[n] = y[n-1] + x[n] */</span>
+integrator[<span class="nu">0</span>] += pdm_bit;           <span class="cm">/* accumulate */</span>
+integrator[<span class="nu">1</span>] += integrator[<span class="nu">0</span>];
+integrator[<span class="nu">2</span>] += integrator[<span class="nu">1</span>];
+
+<span class="cm">/* Comb (runs every 64th bit): y[n] = x[n] - x[n-1] */</span>
+<span class="kw">if</span> (++bit_count == <span class="nu">64</span>) {
+    bit_count = <span class="nu">0</span>;
+    <span class="ty">int32_t</span> v = integrator[<span class="nu">2</span>];
+    comb_out = v - comb_prev;         <span class="cm">/* differentiate */</span>
+    comb_prev = v;
+    <span class="cm">/* pass to FIR stage */</span>
+}</code></pre>
+
+<table>
+  <tr><th>Property</th><th>Value</th></tr>
+  <tr><td>Input rate</td><td>3.072 MHz PDM</td></tr>
+  <tr><td>Output rate</td><td>48 kHz PCM</td></tr>
+  <tr><td>Decimation ratio</td><td>64×</td></tr>
+  <tr><td>Filter order</td><td>3rd order (3 integrators, 3 combs)</td></tr>
+  <tr><td>Gain</td><td>64³ = 262,144 (must scale down to int16)</td></tr>
+  <tr><td>Math operations</td><td>Add/subtract only</td></tr>
+</table>
+
+<div class="analogy"><strong>Analogy</strong><p>The CIC integrator is a running sum — like counting votes in real time. The comb stage is "how many more votes since the last checkpoint?" Together they average out the high-frequency noise while keeping the low-frequency signal.</p></div>
+
+<h2>6. FIR Filter — Finite Impulse Response</h2>
+<p>A 16-tap low-pass FIR runs at 48 kHz to clean up CIC droop and remove frequencies above 19 kHz (half of 48 kHz = Nyquist).</p>
+<pre><code><span class="cm">/* 16-tap Hamming-windowed sinc coefficients (Q15, sum ≈ 32767) */</span>
+<span class="kw">static const</span> <span class="ty">int16_t</span> fir_coeffs[<span class="nu">16</span>] = {
+    <span class="nu">-128</span>, <span class="nu">-256</span>, <span class="nu">0</span>, <span class="nu">512</span>, <span class="nu">1024</span>, <span class="nu">2048</span>, <span class="nu">4096</span>, <span class="nu">8192</span>,
+    <span class="nu">8192</span>, <span class="nu">4096</span>, <span class="nu">2048</span>, <span class="nu">1024</span>, <span class="nu">512</span>, <span class="nu">0</span>, <span class="nu">-256</span>, <span class="nu">-128</span>
+};  <span class="cm">/* symmetric = linear phase (no phase distortion) */</span>
+
+<span class="cm">/* Ring buffer delay line + MAC loop: */</span>
+delay[head] = new_sample;
+<span class="ty">int32_t</span> acc = <span class="nu">0</span>;
+<span class="kw">for</span> (<span class="ty">int</span> i = <span class="nu">0</span>; i &lt; <span class="nu">16</span>; i++) {
+    acc += (<span class="ty">int32_t</span>)fir_coeffs[i] * delay[(head - i) &amp; <span class="nu">0xF</span>];
+}
+output = (acc &gt;&gt; <span class="nu">15</span>);  <span class="cm">/* Q15 → int16 */</span>
+head = (head + <span class="nu">1</span>) &amp; <span class="nu">0xF</span>;</code></pre>
+
+<div class="analogy"><strong>Analogy</strong><p>An FIR is a weighted moving average. Each output sample is the dot product of the last 16 input samples with the coefficient weights. The symmetric shape means it's "balanced" — no phase shift, just smoothing.</p></div>
+
+<h2>7. Q15 Fixed-Point Arithmetic</h2>
+<p>Q15 represents fractional numbers in a 16-bit integer. The implicit binary point is after bit 15: range is -1.0 to +0.9999 (i.e., -32768 to +32767).</p>
+<pre><code><span class="cm">/* Represent 0.5 in Q15: */</span>
+<span class="ty">int16_t</span> half = (<span class="ty">int16_t</span>)(<span class="nu">0.5f</span> * <span class="nu">32767.0f</span>);  <span class="cm">/* = 16383 */</span>
+
+<span class="cm">/* Multiply two Q15 numbers: result is Q30, shift down to Q15 */</span>
+<span class="ty">int32_t</span> product = (<span class="ty">int32_t</span>)a * b;  <span class="cm">/* Q30 */</span>
+<span class="ty">int16_t</span> result  = (product &gt;&gt; <span class="nu">15</span>); <span class="cm">/* Q15 */</span>
+
+<span class="cm">/* Sine LUT: 256 entries, full cycle */</span>
+lut[i] = (<span class="ty">int16_t</span>)(<span class="nu">32767.0f</span> * sinf(<span class="nu">2.0f</span> * M_PI * i / <span class="nu">256.0f</span>));</code></pre>
+
+<table>
+  <tr><th>Format</th><th>Range</th><th>Precision</th><th>When to use</th></tr>
+  <tr><td>Q15 (int16)</td><td>-1.0 to +1.0</td><td>1/32768 ≈ 0.003%</td><td>Coefficients, normalized samples</td></tr>
+  <tr><td>Q31 (int32)</td><td>-1.0 to +1.0</td><td>1/2³¹</td><td>Accumulators, high precision</td></tr>
+  <tr><td>float32</td><td>±3.4×10³⁸</td><td>~7 decimal digits</td><td>When FPU present, non-RT code</td></tr>
+</table>
+
+<h2>8. Vector Table &amp; Startup Code</h2>
+<p>On ARM Cortex-M, the processor reads two words from the beginning of Flash at reset: the initial stack pointer, and the address of <code>Reset_Handler</code>.</p>
+<pre><code><span class="cm">/* From main.c — vector table placed in .isr_vector section */</span>
+<span class="kw">__attribute__</span>((section(<span class="st">".isr_vector"</span>)))
+<span class="kw">const</span> <span class="ty">uint32_t</span> vector_table[] = {
+    _estack,                          <span class="cm">/* 0: initial stack pointer (top of SRAM) */</span>
+    (<span class="ty">uint32_t</span>)Reset_Handler,         <span class="cm">/* 1: reset vector */</span>
+    (<span class="ty">uint32_t</span>)Default_Handler,       <span class="cm">/* 2: NMI */</span>
+    (<span class="ty">uint32_t</span>)Default_Handler,       <span class="cm">/* 3: HardFault */</span>
+    <span class="cm">/* ... */</span>
+};
+
+<span class="kw">void</span> <span class="fn">Reset_Handler</span>(<span class="kw">void</span>) {
+    <span class="cm">/* 1. Copy .data from Flash to SRAM */</span>
+    <span class="ty">uint32_t</span> *src = &amp;_sidata, *dst = &amp;_sdata;
+    <span class="kw">while</span> (dst &lt; &amp;_edata) *dst++ = *src++;
+
+    <span class="cm">/* 2. Zero .bss in SRAM */</span>
+    <span class="kw">for</span> (<span class="ty">uint32_t</span> *p = &amp;_sbss; p &lt; &amp;_ebss; ) *p++ = <span class="nu">0</span>;
+
+    <span class="cm">/* 3. Call main */</span>
+    <span class="fn">main</span>();
+}</code></pre>
+
+<div class="analogy"><strong>Analogy</strong><p>The vector table is the phone directory the processor reads when it wakes up. Entry 0 = "where's the top of stack?" Entry 1 = "who do I call first?" The Reset_Handler is the opening act — move furniture (copy .data), vacuum the floor (zero .bss), then let main() run.</p></div>
+
+<h2>9. Linker Script</h2>
+<p>The linker script defines the memory map and tells the linker where to put each section.</p>
+<pre><code><span class="cm">/* linker/stm32f407.ld */</span>
+MEMORY {
+    FLASH (rx)  : ORIGIN = 0x08000000, LENGTH = 1024K
+    SRAM  (rwx) : ORIGIN = 0x20000000, LENGTH = 128K
+}
+
+SECTIONS {
+    .text : {                        <span class="cm">/* code goes to Flash */</span>
+        KEEP(*(.isr_vector))         <span class="cm">/* vector table MUST be first */</span>
+        *(.text*)
+    } &gt; FLASH
+
+    .data : {                        <span class="cm">/* initialized variables */</span>
+        _sdata = .;
+        *(.data*)
+        _edata = .;
+    } &gt; SRAM AT&gt; FLASH              <span class="cm">/* stored in Flash, runs from SRAM */</span>
+
+    .bss : {                         <span class="cm">/* zero-initialized globals */</span>
+        _sbss = .;
+        *(.bss*)
+        _ebss = .;
+    } &gt; SRAM
+    _estack = ORIGIN(SRAM) + LENGTH(SRAM);  <span class="cm">/* top of stack */</span>
+}</code></pre>
+
+<h2>10. Ring Buffer Pattern</h2>
+<p>Used in both the FIR delay line and the sine LUT phase accumulator. A ring buffer wraps around using a power-of-2 mask instead of a branch.</p>
+<pre><code><span class="pp">#define</span> <span class="ma">SIZE</span> <span class="nu">16</span>      <span class="cm">/* must be power of 2 */</span>
+<span class="pp">#define</span> <span class="ma">MASK</span> (<span class="ma">SIZE</span>-<span class="nu">1</span>) <span class="cm">/* = 0xF */</span>
+
+<span class="ty">uint8_t</span> head = <span class="nu">0</span>;
+<span class="ty">int16_t</span> buf[<span class="ma">SIZE</span>];
+
+<span class="cm">/* Write: */</span>
+buf[head] = value;
+head = (head + <span class="nu">1</span>) &amp; <span class="ma">MASK</span>;  <span class="cm">/* 0→1→…→15→0, no branch */</span>
+
+<span class="cm">/* Read N samples back: */</span>
+buf[(head - N) &amp; <span class="ma">MASK</span>];     <span class="cm">/* modular arithmetic, no bounds check */</span></code></pre>
+
+<h2>11. Producer-Consumer (Lock-Free)</h2>
+<p>The ping-pong buffer implements a lock-free producer-consumer where the ISR is the producer (signals "buffer is done playing, swap it") and the main loop is the consumer (fills the next buffer).</p>
+<ul>
+  <li>Single writer to <code>active</code> flag (the ISR) → no race on write</li>
+  <li>Main loop reads <code>active</code> to pick which half to fill → read is always consistent</li>
+  <li>No mutex needed because the data structures are naturally partitioned</li>
+</ul>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ FILE REF -->
+<div id="tab-fileref" class="tab-content">
+
+<h1>File Reference</h1>
+<p>Every file documented to type declaration, constant, function, loop, and control flow level.</p>
+
+<!-- i2s.h -->
+<div class="file-header">
+  <span class="filename">i2s.h</span>
+  <span class="file-desc">I2S peripheral register map, driver API</span>
+</div>
+<div class="file-body">
+
+<h4>Hardware Constants (Register Addresses)</h4>
+<table>
+  <tr><th>Macro</th><th>Value</th><th>What it is</th></tr>
+  <tr><td><code>I2S2_BASE</code></td><td><code>0x40003800UL</code></td><td>Base address of SPI2/I2S2 peripheral on APB1 bus</td></tr>
+  <tr><td><code>I2S2_CR1</code></td><td>BASE + 0x00</td><td>SPI control register 1 (used to enable SPI mode)</td></tr>
+  <tr><td><code>I2S2_CR2</code></td><td>BASE + 0x04</td><td>SPI control register 2 (DMA enable bits)</td></tr>
+  <tr><td><code>I2S2_SR</code></td><td>BASE + 0x08</td><td>Status register: TXE (TX empty), BSY (busy), UDR (underrun)</td></tr>
+  <tr><td><code>I2S2_DR</code></td><td>BASE + 0x0C</td><td>Data register: write sample here for polling mode</td></tr>
+  <tr><td><code>I2S2_I2SCFGR</code></td><td>BASE + 0x1C</td><td>I2S configuration: mode, standard, data length, clock polarity</td></tr>
+  <tr><td><code>I2S2_I2SPR</code></td><td>BASE + 0x20</td><td>I2S prescaler: sets MCLK divider for sample rate</td></tr>
+</table>
+
+<h4>Configuration Bit Masks</h4>
+<table>
+  <tr><th>Macro</th><th>Bit(s)</th><th>Meaning</th></tr>
+  <tr><td><code>I2S_16BIT</code></td><td>I2SCFGR[1:0]</td><td>Data length = 16-bit</td></tr>
+  <tr><td><code>I2S_MASTER_TX</code></td><td>I2SCFGR[9:8]</td><td>Master transmit mode</td></tr>
+  <tr><td><code>I2S_PHILIPS</code></td><td>I2SCFGR[5:4]</td><td>Philips I2S standard (most common)</td></tr>
+  <tr><td><code>I2S_ENABLE</code></td><td>I2SCFGR[10]</td><td>Enable the I2S peripheral</td></tr>
+  <tr><td><code>SPI_CR2_TXDMAEN</code></td><td>CR2[1]</td><td>Enable DMA request on TX empty</td></tr>
+</table>
+
+<h4>Enum: <code>I2SStatus</code></h4>
+<table>
+  <tr><th>Value</th><th>Meaning</th></tr>
+  <tr><td><code>I2S_OK</code></td><td>Operation succeeded</td></tr>
+  <tr><td><code>I2S_BUSY</code></td><td>Peripheral still transmitting</td></tr>
+  <tr><td><code>I2S_TIMEOUT</code></td><td>Status flag didn't clear within countdown</td></tr>
+</table>
+
+<h4>Struct: <code>I2SDriver</code></h4>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Purpose</th></tr>
+  <tr><td><code>initialized</code></td><td><code>uint8_t</code></td><td>Guard: 1 if i2s_init() has run</td></tr>
+  <tr><td><code>sample_rate</code></td><td><code>uint32_t</code></td><td>Target sample rate in Hz (e.g., 44100)</td></tr>
+  <tr><td><code>buf</code></td><td><code>AudioBuf*</code></td><td>Pointer to ping-pong buffer managed by this driver</td></tr>
+</table>
+
+<h4>Public API</h4>
+<table>
+  <tr><th>Function</th><th>Signature</th><th>Notes</th></tr>
+  <tr><td><code>i2s_init</code></td><td><code>I2SStatus i2s_init(I2SDriver*, uint32_t sample_rate)</code></td><td>Configure I2SCFGR, I2SPR, enable peripheral</td></tr>
+  <tr><td><code>i2s_start</code></td><td><code>void i2s_start(I2SDriver*)</code></td><td>Enable DMA request (CR2.TXDMAEN)</td></tr>
+  <tr><td><code>i2s_stop</code></td><td><code>I2SStatus i2s_stop(I2SDriver*)</code></td><td>Waits for BSY=0 then disables</td></tr>
+  <tr><td><code>i2s_write_sample</code></td><td><code>I2SStatus i2s_write_sample(I2SDriver*, int16_t L, int16_t R)</code></td><td>Polling mode: waits TXE then writes L, then R</td></tr>
+  <tr><td><code>i2s_dma_callback</code></td><td><code>void i2s_dma_callback(I2SDriver*)</code></td><td>Called from DMA ISR: swaps ping-pong buffers</td></tr>
+</table>
+
+</div>
+
+<!-- i2s.c -->
+<div class="file-header">
+  <span class="filename">i2s.c</span>
+  <span class="file-desc">I2S driver implementation — register writes, prescaler calc, DMA setup</span>
+</div>
+<div class="file-body">
+
+<h4>Internal Helper: <code>wait_flag_clear</code></h4>
+<pre><code><span class="kw">static</span> <span class="ty">I2SStatus</span> <span class="fn">wait_flag_clear</span>(<span class="kw">volatile</span> <span class="ty">uint32_t</span> *reg, <span class="ty">uint32_t</span> mask) {
+    <span class="ty">uint32_t</span> timeout = <span class="nu">100000</span>;        <span class="cm">/* countdown, not time-based */</span>
+    <span class="kw">while</span> (*reg &amp; mask) {             <span class="cm">/* spin until bit clears */</span>
+        <span class="kw">if</span> (--timeout == <span class="nu">0</span>) <span class="kw">return</span> I2S_TIMEOUT;
+    }
+    <span class="kw">return</span> I2S_OK;
+}</code></pre>
+<ul>
+  <li><strong>Loop type:</strong> Busy-wait spin loop with countdown</li>
+  <li><strong>Why countdown not time:</strong> No SysTick configured in bare-metal startup</li>
+  <li><strong>volatile:</strong> Forces re-read of register on every iteration</li>
+</ul>
+
+<h4>Key Initialisation Sequence in <code>i2s_init</code></h4>
+<ol>
+  <li>Disable I2S peripheral (clear I2SE bit)</li>
+  <li>Set I2SCFGR: data length=16bit, Philips standard, master TX</li>
+  <li>Set I2SPR: hardcoded prescaler for 44.1 kHz @ 168 MHz (production would compute from clock tree)</li>
+  <li>Re-enable I2S (set I2SE)</li>
+  <li>Mark <code>driver->initialized = 1</code></li>
+</ol>
+
+<h4><code>i2s_dma_callback</code> — ISR context</h4>
+<pre><code><span class="kw">void</span> <span class="fn">i2s_dma_callback</span>(<span class="ty">I2SDriver</span> *drv) {
+    <span class="fn">audio_buf_swap</span>(drv-&gt;buf);   <span class="cm">/* atomic XOR of active flag */</span>
+    <span class="cm">/* main loop detects the swap and refills the now-inactive half */</span>
+}</code></pre>
+
+</div>
+
+<!-- audio_buf.h / .c -->
+<div class="file-header">
+  <span class="filename">audio_buf.h / audio_buf.c</span>
+  <span class="file-desc">Ping-pong buffer — lock-free DMA/CPU handoff</span>
+</div>
+<div class="file-body">
+
+<h4>Constants</h4>
+<table>
+  <tr><th>Macro</th><th>Value</th><th>Meaning</th></tr>
+  <tr><td><code>AUDIO_BUF_SIZE</code></td><td>512</td><td>Stereo frames per half-buffer (power of 2)</td></tr>
+  <tr><td><code>AUDIO_SAMPLE_RATE</code></td><td>44100</td><td>Hz — determines interrupt frequency</td></tr>
+  <tr><td><code>AUDIO_CHANNELS</code></td><td>2</td><td>Stereo: L and R interleaved</td></tr>
+</table>
+
+<h4>Struct: <code>AudioBuf</code></h4>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Layout</th></tr>
+  <tr><td><code>ping</code></td><td><code>int16_t[512]</code></td><td>Interleaved L,R,L,R… — 256 stereo frames</td></tr>
+  <tr><td><code>pong</code></td><td><code>int16_t[512]</code></td><td>Same layout as ping</td></tr>
+  <tr><td><code>active</code></td><td><code>uint8_t</code></td><td>0 = DMA reads ping / CPU writes pong; 1 = vice versa</td></tr>
+  <tr><td><code>underruns</code></td><td><code>uint32_t</code></td><td>Incremented when DMA reaches a buffer the CPU hasn't filled</td></tr>
+</table>
+
+<h4>API Implementation Details</h4>
+<table>
+  <tr><th>Function</th><th>Core operation</th></tr>
+  <tr><td><code>audio_buf_init</code></td><td><code>memset</code> both halves to 0, set active=0, underruns=0</td></tr>
+  <tr><td><code>audio_buf_get_write_ptr</code></td><td>Returns <code>pong</code> if active==0, else <code>ping</code></td></tr>
+  <tr><td><code>audio_buf_get_read_ptr</code></td><td>Returns <code>ping</code> if active==0, else <code>pong</code></td></tr>
+  <tr><td><code>audio_buf_swap</code></td><td><code>buf->active ^= 1</code> — single instruction, ISR-safe</td></tr>
+  <tr><td><code>audio_buf_silence</code></td><td><code>memset(ptr, 0, AUDIO_BUF_SIZE * sizeof(int16_t))</code></td></tr>
+</table>
+
+<h4>Pointer Invariant (Critical)</h4>
+<pre><code><span class="cm">/* These two NEVER point to the same buffer: */</span>
+write_ptr = <span class="fn">audio_buf_get_write_ptr</span>(&amp;buf);  <span class="cm">/* CPU fills this */</span>
+read_ptr  = <span class="fn">audio_buf_get_read_ptr</span>(&amp;buf);   <span class="cm">/* DMA reads this */</span>
+<span class="cm">/* write_ptr != read_ptr is tested by test_audio_buf.c */</span></code></pre>
+
+</div>
+
+<!-- sine_gen.h / .c -->
+<div class="file-header">
+  <span class="filename">sine_gen.h / sine_gen.c</span>
+  <span class="file-desc">440 Hz sine generator — Q15 LUT, phase accumulator</span>
+</div>
+<div class="file-body">
+
+<h4>Constants</h4>
+<table>
+  <tr><th>Macro / Symbol</th><th>Value</th><th>Purpose</th></tr>
+  <tr><td><code>LUT_SIZE</code></td><td>256</td><td>Entries in sine table — one full cycle</td></tr>
+  <tr><td><code>lut[256]</code></td><td><code>int16_t</code> (static)</td><td>Pre-computed Q15 sine values, filled in sine_gen_init</td></tr>
+</table>
+
+<h4>Struct: <code>SineGen</code></h4>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Purpose</th></tr>
+  <tr><td><code>phase</code></td><td><code>float</code></td><td>Current position in LUT (0.0 to 256.0)</td></tr>
+  <tr><td><code>phase_inc</code></td><td><code>float</code></td><td><code>freq_hz * 256 / sample_rate</code> — advance per sample</td></tr>
+  <tr><td><code>amplitude</code></td><td><code>float</code></td><td>0.0 to 1.0 scale factor</td></tr>
+  <tr><td><code>frequency_hz</code></td><td><code>float</code></td><td>Stored for diagnostics</td></tr>
+</table>
+
+<h4>LUT Build Loop (in <code>sine_gen_init</code>)</h4>
+<pre><code><span class="kw">for</span> (<span class="ty">int</span> i = <span class="nu">0</span>; i &lt; <span class="ma">LUT_SIZE</span>; i++) {
+    lut[i] = (<span class="ty">int16_t</span>)(<span class="nu">32767.0f</span> * sinf(<span class="nu">2.0f</span> * M_PI * i / <span class="ma">LUT_SIZE</span>));
+}
+<span class="cm">/* Called once. sinf() only used at startup, never at audio rate. */</span></code></pre>
+
+<h4>Fill Loop (in <code>sine_gen_fill</code>)</h4>
+<pre><code><span class="kw">for</span> (<span class="ty">int</span> i = <span class="nu">0</span>; i &lt; num_frames; i++) {
+    <span class="ty">uint8_t</span> idx    = (<span class="ty">uint8_t</span>)(gen-&gt;phase);   <span class="cm">/* truncate to int index */</span>
+    <span class="ty">int16_t</span> sample = (<span class="ty">int16_t</span>)(lut[idx] * gen-&gt;amplitude);
+    buf[i * <span class="nu">2</span>]     = sample;                   <span class="cm">/* Left channel  */</span>
+    buf[i * <span class="nu">2</span> + <span class="nu">1</span>] = sample;                   <span class="cm">/* Right channel */</span>
+    gen-&gt;phase += gen-&gt;phase_inc;
+    <span class="kw">if</span> (gen-&gt;phase &gt;= <span class="ma">LUT_SIZE</span>) gen-&gt;phase -= <span class="ma">LUT_SIZE</span>;  <span class="cm">/* wrap */</span>
+}</code></pre>
+<ul>
+  <li><strong>Buffer stride:</strong> <code>i*2</code> and <code>i*2+1</code> — stereo interleaved</li>
+  <li><strong>Phase wrap:</strong> subtraction instead of modulo — avoids float division</li>
+  <li><strong>No trig at runtime:</strong> only a table lookup + multiply</li>
+</ul>
+
+</div>
+
+<!-- pdm_filter -->
+<div class="file-header">
+  <span class="filename">src/pdm_filter.h / pdm_filter.c</span>
+  <span class="file-desc">PDM→PCM decimation: CIC integrators + 16-tap FIR</span>
+</div>
+<div class="file-body">
+
+<h4>Constants</h4>
+<table>
+  <tr><th>Macro</th><th>Value</th><th>Meaning</th></tr>
+  <tr><td><code>CIC_STAGES</code></td><td>3</td><td>Number of integrator/comb pairs</td></tr>
+  <tr><td><code>CIC_DECIMATION</code></td><td>64</td><td>Downsample ratio (PDM→PCM)</td></tr>
+  <tr><td><code>FIR_TAPS</code></td><td>16</td><td>Filter length</td></tr>
+  <tr><td><code>fir_coeffs[16]</code></td><td>int16_t, Q15</td><td>Hamming-windowed sinc, symmetric</td></tr>
+</table>
+
+<h4>Struct: <code>PDMFilter</code></h4>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Purpose</th></tr>
+  <tr><td><code>integrator[3]</code></td><td><code>int32_t</code></td><td>Running sums for 3 CIC integrator stages</td></tr>
+  <tr><td><code>comb_prev[3]</code></td><td><code>int32_t</code></td><td>Previous values for 3 CIC comb stages</td></tr>
+  <tr><td><code>delay[16]</code></td><td><code>int16_t</code></td><td>FIR ring-buffer delay line</td></tr>
+  <tr><td><code>delay_head</code></td><td><code>uint8_t</code></td><td>Write head into delay ring buffer</td></tr>
+  <tr><td><code>bit_count</code></td><td><code>uint8_t</code></td><td>Counts PDM bits; produces output every 64</td></tr>
+</table>
+
+<h4>Key Loops in <code>pdm_filter_process_byte</code></h4>
+<pre><code><span class="cm">/* Outer: iterate over 8 bits of the input byte (MSB first) */</span>
+<span class="kw">for</span> (<span class="ty">int</span> bit = <span class="nu">7</span>; bit &gt;= <span class="nu">0</span>; bit--) {
+    <span class="ty">int32_t</span> x = (pdm_byte &gt;&gt; bit) &amp; <span class="nu">1</span>;  <span class="cm">/* extract 1 PDM bit */</span>
+
+    <span class="cm">/* CIC integrators — 3 cascaded running sums */</span>
+    f-&gt;integrator[<span class="nu">0</span>] += x;
+    f-&gt;integrator[<span class="nu">1</span>] += f-&gt;integrator[<span class="nu">0</span>];
+    f-&gt;integrator[<span class="nu">2</span>] += f-&gt;integrator[<span class="nu">1</span>];
+
+    <span class="kw">if</span> (++f-&gt;bit_count == <span class="ma">CIC_DECIMATION</span>) {   <span class="cm">/* every 64 bits */</span>
+        f-&gt;bit_count = <span class="nu">0</span>;
+
+        <span class="cm">/* CIC combs — 3 differentiators */</span>
+        <span class="ty">int32_t</span> v = f-&gt;integrator[<span class="nu">2</span>];
+        <span class="kw">for</span> (<span class="ty">int</span> s = <span class="nu">0</span>; s &lt; <span class="ma">CIC_STAGES</span>; s++) {
+            <span class="ty">int32_t</span> tmp = v - f-&gt;comb_prev[s];
+            f-&gt;comb_prev[s] = v;
+            v = tmp;
+        }
+
+        <span class="cm">/* Scale CIC output (gain = 64^3 = 262144) → int16 range */</span>
+        <span class="ty">int32_t</span> cic_out = v / (<span class="nu">1</span> &lt;&lt; <span class="nu">9</span>);   <span class="cm">/* >>9 keeps headroom */</span>
+
+        <span class="cm">/* FIR: insert into ring buffer, compute dot product */</span>
+        f-&gt;delay[f-&gt;delay_head] = (<span class="ty">int16_t</span>)cic_out;
+        <span class="ty">int32_t</span> acc = <span class="nu">0</span>;
+        <span class="kw">for</span> (<span class="ty">int</span> k = <span class="nu">0</span>; k &lt; <span class="ma">FIR_TAPS</span>; k++) {
+            acc += (<span class="ty">int32_t</span>)fir_coeffs[k]
+                 * f-&gt;delay[(f-&gt;delay_head - k) &amp; <span class="nu">0xF</span>];
+        }
+        f-&gt;delay_head = (f-&gt;delay_head + <span class="nu">1</span>) &amp; <span class="nu">0xF</span>;
+        *pcm_out = (<span class="ty">int16_t</span>)(acc &gt;&gt; <span class="nu">15</span>);  <span class="cm">/* Q15 → int16 */</span>
+        <span class="kw">return</span> <span class="nu">1</span>;                          <span class="cm">/* sample ready */</span>
+    }
+}
+<span class="kw">return</span> <span class="nu">0</span>;  <span class="cm">/* need more bits */</span></code></pre>
+
+</div>
+
+<!-- main.c -->
+<div class="file-header">
+  <span class="filename">main.c</span>
+  <span class="file-desc">Startup, vector table, audio loop</span>
+</div>
+<div class="file-body">
+
+<h4>Sections &amp; Symbols</h4>
+<table>
+  <tr><th>Symbol</th><th>Defined in</th><th>Meaning</th></tr>
+  <tr><td><code>_estack</code></td><td>linker script</td><td>Top of SRAM — initial SP value</td></tr>
+  <tr><td><code>_sidata</code></td><td>linker script</td><td>Load address of .data in Flash</td></tr>
+  <tr><td><code>_sdata / _edata</code></td><td>linker script</td><td>Start/end of .data in SRAM</td></tr>
+  <tr><td><code>_sbss / _ebss</code></td><td>linker script</td><td>Start/end of .bss in SRAM</td></tr>
+</table>
+
+<h4>Main Loop Pattern</h4>
+<pre><code><span class="kw">int</span> <span class="fn">main</span>(<span class="kw">void</span>) {
+    <span class="ty">AudioBuf</span> buf;  <span class="ty">I2SDriver</span> drv;  <span class="ty">SineGen</span> gen;
+
+    <span class="fn">audio_buf_init</span>(&amp;buf);
+    <span class="fn">i2s_init</span>(&amp;drv, <span class="nu">44100</span>);
+    drv.buf = &amp;buf;
+    <span class="fn">sine_gen_init</span>(&amp;gen, <span class="nu">440.0f</span>, <span class="nu">0.8f</span>, <span class="nu">44100</span>);  <span class="cm">/* 440 Hz A4, 80% volume */</span>
+
+    <span class="cm">/* Pre-fill one buffer before starting DMA */</span>
+    <span class="fn">sine_gen_fill</span>(&amp;gen, <span class="fn">audio_buf_get_write_ptr</span>(&amp;buf), <span class="nu">256</span>);
+    <span class="fn">audio_buf_swap</span>(&amp;buf);
+    <span class="fn">sine_gen_fill</span>(&amp;gen, <span class="fn">audio_buf_get_write_ptr</span>(&amp;buf), <span class="nu">256</span>);
+
+    <span class="fn">i2s_start</span>(&amp;drv);    <span class="cm">/* enable DMA — audio begins */</span>
+
+    <span class="kw">while</span> (<span class="nu">1</span>) {         <span class="cm">/* main loop: fill inactive buffer */</span>
+        <span class="ty">int16_t</span> *wp = <span class="fn">audio_buf_get_write_ptr</span>(&amp;buf);
+        <span class="fn">sine_gen_fill</span>(&amp;gen, wp, <span class="nu">256</span>);
+        <span class="cm">/* swap is triggered by ISR, not main loop */</span>
+    }
+}</code></pre>
+
+</div>
+
+<!-- linker -->
+<div class="file-header">
+  <span class="filename">linker/stm32f407.ld</span>
+  <span class="file-desc">Memory map and section layout</span>
+</div>
+<div class="file-body">
+<table>
+  <tr><th>Region</th><th>Start</th><th>Size</th><th>Permissions</th><th>Contents</th></tr>
+  <tr><td>FLASH</td><td><code>0x08000000</code></td><td>1024 KB</td><td>rx (no write)</td><td>Vector table, .text, .rodata, .data load image</td></tr>
+  <tr><td>SRAM</td><td><code>0x20000000</code></td><td>128 KB</td><td>rwx</td><td>.data (runtime), .bss, stack (grows down from top)</td></tr>
+</table>
+<p>Key linker idiom: <code>&gt; SRAM AT&gt; FLASH</code> for <code>.data</code> means "link as if in SRAM (VMA), but physically store in Flash (LMA)." The Reset_Handler copies it from LMA→VMA at startup.</p>
+</div>
+
+<!-- Makefile -->
+<div class="file-header">
+  <span class="filename">Makefile</span>
+  <span class="file-desc">Cross-compilation and test build</span>
+</div>
+<div class="file-body">
+<table>
+  <tr><th>Target</th><th>Command</th><th>What it does</th></tr>
+  <tr><td><code>all</code></td><td><code>make</code></td><td>Cross-compile with arm-none-eabi-gcc → firmware.elf</td></tr>
+  <tr><td><code>test</code></td><td><code>make test</code></td><td>Compile tests with host gcc, run 3 test binaries</td></tr>
+  <tr><td><code>qemu</code></td><td><code>make qemu</code></td><td>Launch firmware in QEMU netduinoplus2 machine</td></tr>
+  <tr><td><code>clean</code></td><td><code>make clean</code></td><td>Delete build/ directory</td></tr>
+</table>
+
+<h4>Key Compiler Flags</h4>
+<table>
+  <tr><th>Flag</th><th>Meaning</th></tr>
+  <tr><td><code>-mcpu=cortex-m4</code></td><td>Target CPU — enables Thumb-2 and DSP instructions</td></tr>
+  <tr><td><code>-mthumb</code></td><td>Generate Thumb (16/32-bit mixed) instructions</td></tr>
+  <tr><td><code>-mfloat-abi=soft</code></td><td>Software float ABI — portable, no FPU register passing</td></tr>
+  <tr><td><code>-ffreestanding</code></td><td>No libc assumed, no <code>main</code> return assumed</td></tr>
+  <tr><td><code>-nostdlib</code></td><td>Don't link libc or startup files</td></tr>
+  <tr><td><code>-T linker/stm32f407.ld</code></td><td>Use our linker script</td></tr>
+  <tr><td><code>-Os</code></td><td>Optimize for size — important in 1 MB Flash</td></tr>
+</table>
+</div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ AUDIO STACK -->
+<div id="tab-audiostack" class="tab-content">
+
+<h1>The Audio Stack</h1>
+<p>How audio flows from your application code down to the speaker — on Linux, macOS, Windows, and bare-metal.</p>
+
+<h2>Linux Audio Stack</h2>
+<div class="stack">
+  <div class="layer l1"><span class="label">Application (VLC, browser, game)</span><span class="note">calls PulseAudio or ALSA API</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l2"><span class="label">PulseAudio / PipeWire</span><span class="note">per-user sound server — mixing, routing, Bluetooth</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l3"><span class="label">ALSA (Advanced Linux Sound Architecture)</span><span class="note">kernel-level PCM, MIDI, codec control</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l4"><span class="label">ALSA Kernel Driver (snd_hda_intel etc.)</span><span class="note">talks to hardware via DMA + IRQ</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l5"><span class="label">HDA / I2S / USB Audio Hardware</span><span class="note">DAC, amplifier, speaker</span></div>
+</div>
+
+<table>
+  <tr><th>Layer</th><th>API/Tool</th><th>Key responsibility</th></tr>
+  <tr><td>PulseAudio</td><td><code>pa_simple_write()</code></td><td>Per-app volume, network audio, format conversion</td></tr>
+  <tr><td>PipeWire</td><td><code>pw_stream_connect()</code></td><td>Modern replacement: low-latency pro audio + consumer</td></tr>
+  <tr><td>JACK</td><td><code>jack_port_connect()</code></td><td>Pro audio — deterministic latency, direct ALSA bypass</td></tr>
+  <tr><td>ALSA</td><td><code>snd_pcm_writei()</code></td><td>Ring buffer between kernel and hardware DMA</td></tr>
+  <tr><td>Kernel driver</td><td>(internal)</td><td>Programs DMA engine, handles interrupts, sets sample rate</td></tr>
+</table>
+
+<div class="callout info"><p><strong>Where this project lives:</strong> This bare-metal driver is the equivalent of the ALSA kernel driver layer — it directly programs the DMA engine and peripheral registers, handles interrupts, and feeds the DAC.</p></div>
+
+<h2>macOS Audio Stack (CoreAudio)</h2>
+<div class="stack">
+  <div class="layer l1"><span class="label">App (AVFoundation, AudioToolbox)</span><span class="note">AVAudioEngine, AudioQueue</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l2"><span class="label">CoreAudio HAL</span><span class="note">Hardware Abstraction Layer — device enumeration, format negotiation</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l3"><span class="label">Audio Server (coreaudiod)</span><span class="note">Mixing daemon — runs at real-time priority</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l4"><span class="label">I/O Kit Audio Driver (kext)</span><span class="note">Kernel extension — talks to hardware</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l5"><span class="label">Hardware (Apple Silicon DSP / USB)</span><span class="note">Apple custom audio DSP on M-series</span></div>
+</div>
+
+<h4>CoreAudio Key Concepts</h4>
+<table>
+  <tr><th>Term</th><th>Meaning</th></tr>
+  <tr><td>AudioUnit</td><td>Graph node — can be a mixer, effect, output, etc.</td></tr>
+  <tr><td>AudioBufferList</td><td>Equivalent to our AudioBuf — passed between units</td></tr>
+  <tr><td>Render callback</td><td>Equivalent to our DMA ISR — called when hardware needs more data</td></tr>
+  <tr><td>kAudioHardwarePropertyDefaultOutputDevice</td><td>Like reading which I2S peripheral is connected</td></tr>
+</table>
+
+<h2>Windows Audio Stack (WASAPI)</h2>
+<div class="stack">
+  <div class="layer l1"><span class="label">App (DirectSound, XAudio2, WASAPI)</span><span class="note">IAudioClient, IAudioRenderClient</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l2"><span class="label">Windows Audio Session (audiodg.exe)</span><span class="note">User-space mixing; WASAPI exclusive bypasses this</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l3"><span class="label">WDM-KS (Kernel Streaming)</span><span class="note">Low-latency kernel path</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l4"><span class="label">Audio Driver (PortCls / HD Audio)</span><span class="note">DMA, ring buffer, interrupt handling</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l5"><span class="label">Hardware</span><span class="note">HD Audio codec, USB, Bluetooth</span></div>
+</div>
+
+<h2>Embedded Audio Stack (This Project)</h2>
+<div class="stack">
+  <div class="layer l1"><span class="label">Application (main.c)</span><span class="note">sine_gen_fill() populates buffer</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l2"><span class="label">Audio Buffer (audio_buf.c)</span><span class="note">Ping-pong double buffer — equivalent to OS ring buffer</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l3"><span class="label">I2S Driver (i2s.c)</span><span class="note">Register writes, DMA setup — equivalent to kernel driver</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l4"><span class="label">DMA Controller (hardware)</span><span class="note">Copies buffer → I2S data register autonomously</span></div>
+  <div class="arrow">↓</div>
+  <div class="layer l5"><span class="label">I2S Peripheral → DAC → Speaker</span><span class="note">Generates bit clock, word select, serial data</span></div>
+</div>
+
+<h2>I2S Protocol Deep Dive</h2>
+<p>I2S (Inter-IC Sound) is a 3-wire serial bus: bit clock (BCLK), word select (WS/LRCK), and serial data (SD).</p>
+<pre class="arch">
+BCLK  ‾|_|‾|_|‾|_|‾|_|‾|_|‾|_|‾|_|‾|_|‾|_|‾|_|‾|_|‾|_|‾|_|‾|_|‾|_|
+WS    ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾|_______________________________
+      ← Left channel (WS=1) 32 BCLK cycles →← Right channel (WS=0) →
+SD    [MSB ............ 16-bit sample .... LSB][MSB ... right ... LSB]
+
+Philips standard: data starts 1 BCLK after WS edge
+</pre>
+
+<table>
+  <tr><th>Signal</th><th>Who drives it</th><th>Purpose</th></tr>
+  <tr><td>BCLK (bit clock)</td><td>Master (STM32)</td><td>Clocks each data bit — 64× word select rate for 32-bit slots</td></tr>
+  <tr><td>WS (word select)</td><td>Master</td><td>Identifies left (WS=1) vs right (WS=0) channel</td></tr>
+  <tr><td>SD (serial data)</td><td>Transmitter</td><td>MSB-first, 16-bit samples shifted out</td></tr>
+  <tr><td>MCLK (optional)</td><td>Master</td><td>256× sample rate — used by some DACs as PLL reference</td></tr>
+</table>
+
+<h2>PDM vs I2S vs PCM</h2>
+<table>
+  <tr><th>Format</th><th>What it is</th><th>Where used</th></tr>
+  <tr><td>PDM</td><td>1-bit stream at very high rate (3+ MHz). Noise-shaped. Direct output of MEMS mics.</td><td>MEMS microphones → MCU</td></tr>
+  <tr><td>I2S</td><td>Serial protocol carrying PCM data. Not a format itself — a bus standard.</td><td>MCU ↔ DAC/ADC/codec</td></tr>
+  <tr><td>PCM</td><td>Pulse Code Modulation — multi-bit linear samples at audio rate (44.1/48 kHz)</td><td>Everything once decoded</td></tr>
+  <tr><td>TDM</td><td>Time-Division Multiplexed — I2S extension for >2 channels</td><td>Multi-channel codecs, automotive</td></tr>
+</table>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ ALTERNATIVES -->
+<div id="tab-alternatives" class="tab-content">
+
+<h1>Hardware Alternatives</h1>
+<p>How the same driver would be written — or simulated — without real STM32 hardware.</p>
+
+<h2>1. QEMU (What This Project Uses)</h2>
+<p>QEMU emulates the <code>netduinoplus2</code> machine which includes an STM32F405 (close to F407). The I2S peripheral emulation is partial — DMA and register writes work, but actual audio output goes to <code>/dev/null</code>. Unit tests run natively on the host (Mac/Linux) using the host GCC.</p>
+
+<div class="callout tip"><p><strong>For this project:</strong> QEMU validates startup, register initialization, and control flow. The 27 unit tests validate DSP correctness without any hardware at all — they compile and run on Mac natively.</p></div>
+
+<h2>2. USB Audio Class (UAC)</h2>
+<p>Instead of I2S to a DAC, you can use USB Audio Class to stream PCM to a PC — the PC acts as the DAC and speaker system.</p>
+<table>
+  <tr><th>Approach</th><th>Hardware needed</th><th>Latency</th><th>Complexity</th></tr>
+  <tr><td>I2S + external DAC</td><td>STM32 + PCM5102/CS4344</td><td>~10 ms (buffer)</td><td>Medium — this project</td></tr>
+  <tr><td>USB Audio Class 1.0</td><td>STM32 USB FS + PC</td><td>~20 ms</td><td>High (USB stack)</td></tr>
+  <tr><td>USB Audio Class 2.0</td><td>STM32 USB HS + PC</td><td>~5 ms</td><td>Very high</td></tr>
+  <tr><td>Bluetooth A2DP</td><td>STM32 + BT module</td><td>150–300 ms</td><td>Very high</td></tr>
+</table>
+
+<h2>3. Software-Emulated DAC (PWM Audio)</h2>
+<p>No external DAC chip needed. Output a PWM signal and filter it with an RC circuit to get analog audio.</p>
+<pre><code><span class="cm">/* PWM-based audio: TIM3 at 1 MHz PWM frequency */</span>
+<span class="cm">/* Duty cycle encodes sample value */</span>
+TIM3-&gt;CCR1 = (sample + <span class="nu">32768</span>) &gt;&gt; <span class="nu">4</span>;  <span class="cm">/* 16-bit → 12-bit duty */</span>
+
+<span class="cm">/* RC filter: R=1kΩ, C=33nF → cutoff ~5 kHz */</span>
+<span class="cm">/* Adequate for voice, not high-fidelity audio */</span></code></pre>
+<ul>
+  <li><strong>Pros:</strong> No external chip, only 1 GPIO pin, any MCU</li>
+  <li><strong>Cons:</strong> Poor SNR (~8-bit effective), needs precise PWM frequency, EMI issues</li>
+</ul>
+
+<h2>4. Raspberry Pi / Linux Platform</h2>
+<p>On a Raspberry Pi, the same I2S concepts apply but you write to the ALSA layer instead of bare registers.</p>
+<pre><code><span class="cm">/* Linux equivalent of i2s_write_sample() */</span>
+snd_pcm_t *handle;
+snd_pcm_open(&amp;handle, <span class="st">"default"</span>, SND_PCM_STREAM_PLAYBACK, <span class="nu">0</span>);
+snd_pcm_set_params(handle, SND_PCM_FORMAT_S16_LE,
+                   SND_PCM_ACCESS_RW_INTERLEAVED,
+                   <span class="nu">2</span>, <span class="nu">44100</span>, <span class="nu">1</span>, <span class="nu">500000</span>);  <span class="cm">/* 0.5s latency */</span>
+snd_pcm_writei(handle, buffer, frames);  <span class="cm">/* equivalent to DMA transfer */</span></code></pre>
+<p>ALSA handles the ring buffer, DMA, and IRQ internally — you get the same double-buffering behaviour, just hidden behind the API.</p>
+
+<h2>5. Replacing the I2S DAC with Different Hardware</h2>
+<table>
+  <tr><th>DAC Chip</th><th>Interface</th><th>Key feature</th><th>Change needed in driver</th></tr>
+  <tr><td>PCM5102A</td><td>I2S</td><td>No I²C config needed, auto-format detect</td><td>None — drop-in</td></tr>
+  <tr><td>CS4344</td><td>I2S</td><td>Supports 24-bit, lower noise floor</td><td>Change I2SCFGR data width</td></tr>
+  <tr><td>MAX98357A</td><td>I2S</td><td>Integrated class-D amplifier, drives speaker directly</td><td>None — drop-in</td></tr>
+  <tr><td>WM8960</td><td>I2S + I²C</td><td>Codec with ADC, mic preamp, headphone amp</td><td>Add I²C init sequence for codec registers</td></tr>
+  <tr><td>Internal DAC (STM32)</td><td>DAC peripheral</td><td>No external chip; 12-bit, ≤1 MSPS</td><td>Replace I2S driver with DAC+TIM driver</td></tr>
+</table>
+
+<h2>6. Replacing DMA with Interrupt-Driven Transfer</h2>
+<pre><code><span class="cm">/* I2S TX empty interrupt — fires 44100 × 2 = 88200 times/second */</span>
+<span class="kw">void</span> <span class="fn">SPI2_IRQHandler</span>(<span class="kw">void</span>) {
+    <span class="kw">if</span> (SR &amp; TXE) {
+        *DR = *sample_ptr++;
+        <span class="kw">if</span> (sample_ptr &gt;= end_ptr) {
+            sample_ptr = start_ptr;
+            <span class="cm">/* signal main loop to refill */</span>
+        }
+    }
+}</code></pre>
+<p>At 44.1 kHz stereo this ISR fires 88,200 times/second. Context switch overhead alone (~50 cycles each) = 4.4M cycles/s = 2.6% of a 168 MHz CPU. Acceptable for simple apps, but leaves no room for DSP, Bluetooth, or display updates. DMA drops this to ~94 ISRs/second.</p>
+
+<h2>7. RTOS Alternative (FreeRTOS)</h2>
+<p>In production, the same architecture runs under FreeRTOS. The ping-pong buffer becomes a queue between tasks.</p>
+<pre><code><span class="cm">/* FreeRTOS version of the same pattern */</span>
+QueueHandle_t audio_queue;  <span class="cm">/* filled by audio_task, consumed by i2s_task */</span>
+
+<span class="cm">/* Producer task (equivalent to sine_gen_fill in main loop) */</span>
+<span class="kw">void</span> <span class="fn">audio_task</span>(<span class="kw">void</span> *arg) {
+    <span class="ty">AudioFrame</span> frame;
+    <span class="kw">while</span>(<span class="nu">1</span>) {
+        <span class="fn">sine_gen_fill</span>(&amp;gen, frame.data, <span class="nu">256</span>);
+        xQueueSend(audio_queue, &amp;frame, portMAX_DELAY);
+    }
+}
+
+<span class="cm">/* DMA ISR equivalent — sends notification */</span>
+<span class="kw">void</span> <span class="fn">DMA_IRQHandler</span>() {
+    BaseType_t woken;
+    xQueueSendFromISR(audio_queue, ..., &amp;woken);
+    portYIELD_FROM_ISR(woken);
+}</code></pre>
+
+<h2>8. FPGA Alternative</h2>
+<p>For the highest throughput or custom sample rates, the I2S controller and PDM filter can be implemented in FPGA logic (VHDL/Verilog).</p>
+<ul>
+  <li>CIC filter maps directly to shift registers + adders — purely combinational, no clock overhead</li>
+  <li>FIR filter implemented as systolic array — all 16 multiplications happen in parallel</li>
+  <li>Latency drops from microseconds to nanoseconds</li>
+  <li>Used in: professional audio interfaces, SDR (software-defined radio), MEMS mic arrays</li>
+</ul>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ INTERVIEW -->
+<div id="tab-interview" class="tab-content">
+
+<h1>Interview Preparation</h1>
+<p>Questions from real embedded/audio/systems interviews at Qualcomm, ARM, Apple, Texas Instruments, and audio DSP startups — answered from this codebase.</p>
+
+<h2>DMA &amp; Interrupts</h2>
+
+<div class="qa">
+  <div class="question">Q: Why use DMA instead of CPU-driven I/O for audio output?</div>
+  <div class="answer">
+    <p>At 44.1 kHz stereo, interrupt-per-sample means 88,200 ISR entries per second. Each context switch is ~50–100 cycles on Cortex-M4. That's 4–8 million cycles/second of overhead alone — not counting the actual data write. DMA moves entire buffers (512 samples) and fires one interrupt at completion. Overhead drops by ~512×. The CPU is free 99.9% of the time for DSP, display, or communication tasks.</p>
+    <p>This project proves the point: the DMA ISR is four lines — swap a pointer, done. No data copying in interrupt context.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="question">Q: What is DMA circular mode and why is it used here?</div>
+  <div class="answer">
+    <p>In circular mode, when the DMA reaches the end of the configured buffer it automatically wraps back to the start and continues without CPU intervention. The DMA controller fires an interrupt at the halfway point (half-transfer) and at the end (transfer complete). This maps perfectly to ping-pong buffering: CPU fills the top half while DMA plays the bottom, then they swap.</p>
+    <p>Without circular mode, you'd have to reprogram the DMA source address in every ISR — adding latency and the possibility of missing a buffer handoff.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="question">Q: What is a DMA underrun and how do you detect/handle it?</div>
+  <div class="answer">
+    <p>An underrun occurs when DMA tries to play from a buffer that the CPU hasn't finished filling yet. The result is silence, a glitch, or repeated stale samples — all audible as a pop or dropout.</p>
+    <p>In this driver: <code>AudioBuf.underruns</code> is a counter incremented in the ISR if the CPU hasn't updated the write-side pointer. Detection: check the <code>underruns</code> counter in the main loop. Prevention: ensure <code>sine_gen_fill()</code> completes faster than one DMA buffer period (512 samples / 44100 Hz ≈ 11.6 ms). Our fill is a table lookup — takes ~10 µs.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="question">Q: Explain the difference between a half-transfer and transfer-complete DMA interrupt.</div>
+  <div class="answer">
+    <p>In DMA circular mode with a buffer of N items: the half-transfer interrupt (HTIF) fires when N/2 items have been transferred; the transfer-complete interrupt (TCIF) fires at item N. This gives you two interrupts per buffer cycle. In ping-pong: HTIF = "DMA just finished the first half, CPU can now fill it"; TCIF = "DMA just finished the second half, CPU can now fill it." Each interrupt lets you safely write to the half DMA just vacated.</p>
+  </div>
+</div>
+
+<h2>Ping-Pong Buffers &amp; Synchronisation</h2>
+
+<div class="qa">
+  <div class="question">Q: Why don't you need a mutex for the ping-pong buffer swap?</div>
+  <div class="answer">
+    <p>Two reasons: (1) Only one writer to <code>active</code>: the ISR is the only code that calls <code>audio_buf_swap()</code>, which does <code>active ^= 1</code>. The main loop only reads <code>active</code>. Single writer + no torn write = no race. (2) The XOR of a single byte is atomic on ARM — the processor cannot be interrupted mid-byte-write because a byte write is a single bus transaction.</p>
+    <p>A mutex would add latency in the ISR and could cause priority inversion — never use mutexes in ISR context in real-time audio.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="question">Q: What is the volatile keyword for and why is it critical in this driver?</div>
+  <div class="answer">
+    <p><code>volatile</code> tells the compiler "this variable can change outside the C program's control — do not cache it in a register, do not optimize away accesses, do not reorder reads/writes across sequence points." In this driver it's used for: (1) hardware registers — the I2S status register's TXE bit is set by hardware; the compiler can't see that; (2) ISR-shared variables — <code>active</code> flag is written by the ISR and read by the main loop; without volatile the compiler might read it once and cache the result forever.</p>
+    <div class="analogy"><strong>Analogy</strong><p>Volatile is like a "refresh" button on a live scoreboard. Without it, the C compiler might display the score from when you first looked. With volatile, it checks the real scoreboard every time.</p></div>
+  </div>
+</div>
+
+<h2>DSP — CIC &amp; FIR Filters</h2>
+
+<div class="qa">
+  <div class="question">Q: Why use a CIC filter instead of a direct FIR for PDM decimation?</div>
+  <div class="answer">
+    <p>The PDM bit rate is 3.072 MHz. A 64-tap FIR running at 3 MHz would need 64 multiply-accumulate operations per input bit = 196 million MACs/second. At 168 MHz with single-cycle multiply, that's 117% of CPU capacity — impossible. A CIC filter uses only addition and subtraction. 3 integrators, running every bit = 3 adds × 3.072M = 9.2M additions/second. The Cortex-M4 handles this trivially. The CIC output at 48 kHz is then cleaned up by the 16-tap FIR, which costs only 768K MACs/second.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="question">Q: What is Q15 fixed-point and how do you multiply two Q15 numbers?</div>
+  <div class="answer">
+    <p>Q15 stores fractional values in a 16-bit signed integer. The implied binary point is after bit 15: value = integer / 32768. Range: -1.0 to +0.99997. To multiply two Q15 values: <code>result = (int16_t)(((int32_t)a * b) >> 15)</code>. The multiplication of two 16-bit Q15 numbers gives a 32-bit Q30 result; right-shifting by 15 gives Q15 back. You must widen to int32 first to prevent overflow.</p>
+    <p>Example: 0.5 × 0.5 = 0.25. In Q15: 16384 × 16384 = 268,435,456 (Q30). >> 15 = 8192 = 0.25 in Q15. ✓</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="question">Q: Why are the FIR coefficients symmetric? What does that guarantee?</div>
+  <div class="answer">
+    <p>A symmetric (linear-phase) FIR filter has the property that all frequencies are delayed by the same amount (constant group delay). This means the filter introduces no phase distortion — transients and harmonics arrive at the output at exactly the same relative time as in the input. In audio this matters: phase distortion can make drums sound "smeared" or cause stereo image collapse. The 16 coefficients in this driver are symmetric around the center: <code>coeffs[0] == coeffs[15]</code>, <code>coeffs[1] == coeffs[14]</code>, etc.</p>
+  </div>
+</div>
+
+<h2>Startup &amp; Memory</h2>
+
+<div class="qa">
+  <div class="question">Q: Walk me through what happens from power-on to the first audio sample.</div>
+  <div class="answer">
+    <p>1. CPU comes out of reset, reads stack pointer from address 0x08000000 (= top of SRAM = 0x20020000). 2. CPU reads reset vector from 0x08000004 → jumps to <code>Reset_Handler</code>. 3. Reset_Handler copies .data section from Flash to SRAM (initialized globals). 4. Reset_Handler zeroes .bss section in SRAM (uninitialized globals). 5. Calls <code>main()</code>. 6. main() initializes AudioBuf (memset to silence), I2SDriver (configures I2SCFGR, I2SPR registers), SineGen (builds LUT). 7. Pre-fills two half-buffers with 440 Hz sine data. 8. Calls i2s_start() which sets CR2.TXDMAEN — DMA begins streaming. 9. DMA copies from ping buffer to I2S DR → I2S peripheral clocks bits out on the wire → DAC converts to analog → speaker makes sound.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="question">Q: What is the difference between .text, .data, .bss, and .rodata?</div>
+  <div class="answer">
+    <p><strong>.text</strong> — executable code. Stored in Flash. Read-only at runtime. <strong>.rodata</strong> — read-only data (string literals, const arrays like the FIR coefficient table). Stored in Flash. <strong>.data</strong> — initialized global/static variables. Stored in Flash (the initial values), copied to SRAM at startup. <strong>.bss</strong> — uninitialized or zero-initialized global/static variables. Not stored in Flash — just a size. Zeroed in SRAM at startup. The linker script defines symbols marking the boundaries of each section, which <code>Reset_Handler</code> uses to know what to copy and what to zero.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="question">Q: Why is the vector table placed at 0x08000000 and marked KEEP in the linker script?</div>
+  <div class="answer">
+    <p>ARM Cortex-M reads the vector table from the VTOR (Vector Table Offset Register) which defaults to 0x00000000 at reset. On STM32, address 0x00000000 is aliased to 0x08000000 (Flash) via the BOOT0/BOOT1 pins. If the vector table were not the very first thing in Flash, the reset vector would point to garbage and the CPU would crash immediately. <code>KEEP(*(.isr_vector))</code> prevents the linker from garbage-collecting the vector table when it detects (incorrectly) that nothing "calls" it — the CPU references it directly via hardware, which the linker can't see.</p>
+  </div>
+</div>
+
+<h2>System Design Questions</h2>
+
+<div class="qa">
+  <div class="question">Q: How would you add reverb or EQ to this audio pipeline?</div>
+  <div class="answer">
+    <p>Insert a DSP stage between <code>sine_gen_fill()</code> and the buffer handoff. For EQ: implement a biquad IIR filter (5 coefficients per band, 2 state variables) in Q15. Each band costs 5 MACs per sample. For reverb: a Schroeder reverb uses 4 comb filters + 2 all-pass filters in a feedback topology. State is stored in ring buffers (delay lines of 10–100 ms). At 44.1 kHz with 100 ms delay lines: 4410 samples × 4 bytes × 4 combs ≈ 70 KB of SRAM — fits in our 128 KB SRAM. The key constraint is that all DSP must complete within one buffer period (11.6 ms).</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="question">Q: How would you scale this to 8-channel surround sound?</div>
+  <div class="answer">
+    <p>Switch from I2S (2 channels) to TDM (Time-Division Multiplexed) mode — same I2S bus, but WS toggles every 8 slots instead of every 2. The I2SCFGR register supports this on STM32. The AudioBuf would become 8 interleaved channels instead of 2. The DMA transfer size multiplies by 4. Main challenge: 8× the buffer memory and 8× the DSP compute. At 44.1 kHz × 8 channels × 16 bits × 512 frames = 8 MB/s DMA bandwidth — well within the 168 MHz AHB bus capability.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="question">Q: What would change if you moved this to a Cortex-M0 instead of M4?</div>
+  <div class="answer">
+    <p>Three things: (1) No hardware multiplier (single-cycle MUL on M4 → 32-cycle on M0) — the FIR's 16 MACs per sample would cost 512 cycles instead of 16. At 48 kHz that's 24M cycles/second = 24% of a 100 MHz M0 just for the FIR. (2) No SIMD/DSP instructions — M4 has SMAD16, SMLAL etc. (3) No FPU — but we already use Q15 for this reason. The CIC is unaffected (adds only). The FIR would need to use __int64 accumulators and be careful about overflow. This is exactly why we chose Q15: the same code runs on M0 without modification.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="question">Q: How do you debug audio glitches in a bare-metal system with no OS?</div>
+  <div class="answer">
+    <p>Four techniques: (1) Underrun counter — <code>AudioBuf.underruns</code> tells you if the main loop is too slow. (2) GPIO toggle — set a GPIO pin at ISR entry, clear at exit. Probe with oscilloscope. If the period is irregular, you have timing jitter. (3) Scope the I2S lines — WS should be a perfect square wave at 44.1 kHz; BCLK should be steady. Missing edges indicate a DMA underflow. (4) ITM/SWO trace — Cortex-M4 has the Instrumentation Trace Macrocell; you can printf() to a debug pin at near-zero overhead. Most glitches are caused by: ISR taking too long, main loop doing blocking work (flash writes, I²C waits), or DMA misconfiguration (wrong transfer count).</p>
+  </div>
+</div>
+
+<h2>Quick-Reference Concept Table</h2>
+<table>
+  <tr><th>Concept</th><th>One-line definition</th><th>Where in this project</th></tr>
+  <tr><td>MMIO</td><td>Peripherals are just memory addresses</td><td><code>i2s.h</code> register macros</td></tr>
+  <tr><td>volatile</td><td>Force compiler to re-read; don't cache</td><td><code>i2s.c</code> wait_flag_clear, ISR shared vars</td></tr>
+  <tr><td>DMA</td><td>Hardware copies data without CPU</td><td><code>i2s.c</code> i2s_start, DMA Stream5 Ch0</td></tr>
+  <tr><td>Ping-pong buffer</td><td>Two buffers; always one for play, one for fill</td><td><code>audio_buf.c</code></td></tr>
+  <tr><td>CIC filter</td><td>Decimation via running sums only</td><td><code>pdm_filter.c</code> cic_process_bit</td></tr>
+  <tr><td>FIR filter</td><td>Weighted sliding window; convolution</td><td><code>pdm_filter.c</code> fir_process</td></tr>
+  <tr><td>Q15</td><td>Fractional fixed-point in int16</td><td>FIR coefficients, LUT values</td></tr>
+  <tr><td>Ring buffer</td><td>Circular array via power-of-2 mask</td><td>FIR delay line, phase accumulator</td></tr>
+  <tr><td>Vector table</td><td>Array of function pointers at Flash base</td><td><code>main.c</code> .isr_vector section</td></tr>
+  <tr><td>Linker script</td><td>Defines memory regions and section placement</td><td><code>linker/stm32f407.ld</code></td></tr>
+  <tr><td>LUT (lookup table)</td><td>Pre-computed values indexed by phase</td><td><code>sine_gen.c</code> lut[256]</td></tr>
+  <tr><td>Phase accumulator</td><td>Floating counter that steps through LUT</td><td><code>SineGen.phase</code>, <code>phase_inc</code></td></tr>
+  <tr><td>Underrun</td><td>Consumer reads before producer finishes</td><td><code>AudioBuf.underruns</code></td></tr>
+  <tr><td>Decimation</td><td>Reduce sample rate by averaging/filtering</td><td>CIC ×64: 3 MHz → 48 kHz</td></tr>
+  <tr><td>Cross-compilation</td><td>Compile on machine A for machine B</td><td>Makefile: arm-none-eabi-gcc on Mac</td></tr>
+</table>
+
+<h2>Analogies Cheat Sheet</h2>
+<table>
+  <tr><th>Concept</th><th>Analogy</th></tr>
+  <tr><td>MMIO</td><td>Hotel room doors — writing to room 1004 sends an action, not data</td></tr>
+  <tr><td>volatile</td><td>Refresh button on a live scoreboard — don't use cached score</td></tr>
+  <tr><td>DMA</td><td>Forklift operator — you say "move 512 boxes," go do other work</td></tr>
+  <tr><td>Ping-pong buffer</td><td>Restaurant with two serving windows — one serves while one is restocked</td></tr>
+  <tr><td>CIC integrator</td><td>Running vote tally — just keep adding</td></tr>
+  <tr><td>CIC comb</td><td>"How many new votes since last checkpoint?" — differentiate</td></tr>
+  <tr><td>FIR filter</td><td>Weighted moving average — a smoothing calculation over the last N values</td></tr>
+  <tr><td>Ring buffer</td><td>Circular racetrack — runners never fall off the end</td></tr>
+  <tr><td>Q15</td><td>Percentage in integer: 50% = 16384 (instead of 0.5)</td></tr>
+  <tr><td>Vector table</td><td>Emergency contact list the CPU reads when it wakes up</td></tr>
+  <tr><td>Reset_Handler</td><td>Morning setup routine: move furniture (.data), vacuum (.bss), then open doors (main)</td></tr>
+  <tr><td>LUT</td><td>Pre-printed trig table — look up the answer instead of computing it</td></tr>
+  <tr><td>Underrun</td><td>Waiter brings an empty plate because kitchen wasn't ready in time</td></tr>
+</table>
+
+</div>
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>
