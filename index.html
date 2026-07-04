@@ -139,6 +139,7 @@ td:first-child code { color: var(--teal); }
   <div class="nav-inner">
     <div class="nav-brand">🔊 BM-Audio</div>
     <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab-btn" onclick="switchTab('explained')">Explained Simply</button>
     <button class="tab-btn" onclick="switchTab('concepts')">Concepts &amp; Patterns</button>
     <button class="tab-btn" onclick="switchTab('fileref')">File Reference</button>
     <button class="tab-btn" onclick="switchTab('audiostack')">Audio Stack</button>
@@ -271,6 +272,60 @@ make qemu
   <tr><td><code>tests/</code></td><td>27 Unity tests, compilable natively on Mac</td></tr>
   <tr><td><code>Makefile</code></td><td>Cross-compile (arm-none-eabi-gcc) + native test build</td></tr>
 </table>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ EXPLAINED SIMPLY -->
+<div id="tab-explained" class="tab-content">
+
+<h1>What This Project Actually Does</h1>
+<p>A plain-language walkthrough for anyone who doesn't want to parse register maps and DSP math first. If you already know embedded systems, the <strong>Overview</strong> and <strong>Concepts &amp; Patterns</strong> tabs go deeper.</p>
+
+<div class="analogy">
+<strong>The one-sentence version</strong>
+<p>This code turns a microcontroller into a tiny, dedicated audio device — it listens to a digital microphone, cleans up the signal, and continuously plays a tone out of a speaker, doing all of the timing-critical work in hardware so the CPU is barely involved.</p>
+</div>
+
+<h2>Why "bare-metal" is the interesting part</h2>
+<p>Almost every audio app you've used sits on top of an operating system, a hardware abstraction layer (HAL), and a standard library. This project has none of that. There's no Linux, no RTOS, no <code>printf</code>, no <code>malloc</code> — just C code talking directly to memory addresses that happen to be physical hardware registers on an STM32F407 chip. That's what "bare-metal" means: the program <em>is</em> the operating system.</p>
+<p>It's built and proven without needing to own the physical board — everything compiles and runs against a QEMU simulation of the exact chip (<code>netduinoplus2</code>), and the DSP logic is separately verified with 27 native unit tests that run on a regular laptop.</p>
+
+<h2>The journey of one sample, in plain English</h2>
+<div class="card-grid">
+  <div class="card">
+    <h3>1. Microphone → bits</h3>
+    <p>A PDM microphone doesn't send nice numbers — it sends a raw stream of 1s and 0s at 3 million bits per second. Think of it as a firehose of noisy Morse code.</p>
+  </div>
+  <div class="card">
+    <h3>2. Bits → numbers</h3>
+    <p>A "CIC filter" — cheap hardware-friendly math using only addition and subtraction — turns those 3 million bits/sec into 48,000 real numbers/sec (audio samples), the same rate as a normal digital recording.</p>
+  </div>
+  <div class="card">
+    <h3>3. Cleanup</h3>
+    <p>A second filter (FIR) smooths out artifacts the first filter left behind, the same way a moving average smooths a noisy stock chart.</p>
+  </div>
+  <div class="card">
+    <h3>4. Handoff to the speaker</h3>
+    <p>Two buffers take turns: while one is being played out to the speaker, the other is being filled with the next batch of samples — so there's never a gap or a collision.</p>
+  </div>
+  <div class="card">
+    <h3>5. Out to hardware</h3>
+    <p>A DMA engine — a small helper circuit built into the chip — physically moves the samples to the audio output on its own, so the main processor isn't stuck babysitting every single sample.</p>
+  </div>
+</div>
+
+<h2>Why go to all this trouble instead of the easy way?</h2>
+<table>
+  <tr><th>Easy way</th><th>What this project does instead</th><th>Why</th></tr>
+  <tr><td>Use an OS + audio library</td><td>Talk to hardware registers directly</td><td>Full control over timing — needed on tiny/cheap chips with no room for an OS</td></tr>
+  <tr><td>Interrupt on every sample</td><td>DMA moves whole buffers automatically</td><td>~512x fewer interrupts means the CPU is free to do other work</td></tr>
+  <tr><td>One shared buffer</td><td>Two buffers that swap roles ("ping-pong")</td><td>The mic/speaker can never read from a buffer that's still being written</td></tr>
+  <tr><td>Floating-point math</td><td>Fixed-point (Q15) math</td><td>Works even on cheaper chips with no floating-point hardware, and timing stays predictable</td></tr>
+</table>
+
+<div class="callout tip">
+<p><strong>Who this kind of work is for:</strong> this is exactly the skill set tested by embedded/firmware audio roles at companies like Qualcomm, ARM, and Apple — reading and writing hardware registers correctly, keeping strict real-time guarantees, and proving correctness with tests instead of "it sounded fine on my desk."</p>
+</div>
 
 </div>
 
