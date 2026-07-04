@@ -33,7 +33,8 @@ HOST_CFLAGS = -O0 -g -Wall -Wextra -Isrc -Itests/unity -lm
 FW_SRCS = src/main.c       \
           src/i2s.c        \
           src/audio_buf.c  \
-          src/sine_gen.c
+          src/sine_gen.c   \
+          src/pdm_filter.c
 
 # ── Output directory ────────────────────────────────────────────────────
 BUILD = build
